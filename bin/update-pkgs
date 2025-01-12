@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+nix-update adguard-exporter --flake
+nix-update fast-font --flake --version=branch=main
+nix-update hass-cupertino --flake
+nix-update hass-oidc-auth --flake --version=unstable
+nix-update hass-kiosk-mode --flake --version=branch
+nix-update hass-nature-remo --flake --version=branch
+nix-update hass-tapo --flake --version=branch
+nix-update headplane --flake --version=branch
+nix-update lsp-ai --flake
+nix-update mido --flake --version=branch
+# nix-update moonshine --flake --version=branch
+nix-update nu_plugin_audio_hook --flake --version=branch
+nix-update nu_plugin_clipboard --flake --version=branch
+nix-update nu_plugin_desktop_notifications --flake --version=branch
+nix-update nu_plugin_dns --flake --version=branch
+nix-update nu_plugin_emoji --flake --version=branch
+nix-update nu_plugin_file --flake --version=branch
+nix-update aria-onion --flake --version=branch
+nix-update catppuccin-alacritty --flake --version=branch
+nix-update catppuccin-bat --flake --version=branch
+nix-update catppuccin-gitui --flake --version=branch
+nix-update catppuccin-home-assistant --flake --version=branch
+nix-update catppuccin-starship --flake --version=branch
+nix-update catppuccin-tridactyl --flake --version=branch
+nix-update catppuccin-yazi --flake --version=branch
+nix-update catppuccin-zathura --flake --version=branch
+# must be careful and stay on lower version with ESR support
+# nix-update ff-ultima --flake
+nix-update tree-sitter-kdl --flake --version=branch
+# nix-update bitwardenapp --flake --version=branch=km/forwarding-and-signing-parsers
+nix-update meowfetch --flake --version=branch
+nix-update firejail-unstable --flake --version=branch
+nix-update prometheus-postgres-exporter-unstable --flake --version=branch

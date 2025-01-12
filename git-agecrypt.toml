@@ -1,0 +1,2 @@
+[config]
+"var/global.nix" = ["ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMVdZ5xqQiFHLwoDlM3S0Q24zCIl9erzz1dGcocEU4b1 age"]

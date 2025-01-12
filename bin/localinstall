@@ -1,0 +1,105 @@
+#!/usr/bin/env bash
+
+showUsage() {
+  cat <<USAGE
+Usage : localinstall -h <hostname> [options]
+
+Options:
+
+* -h, --host <hostname>
+Set the config hostname to install from this flake
+
+* --secureboot
+Generate secure boot keys.
+
+* --initrdssh
+Generate initrd SSH host keys.
+
+* --homesecrets
+Install home secrets key
+
+* --username
+Set the username to install secrets (optional)
+
+USAGE
+}
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+cd "$SCRIPT_DIR" || exit
+
+if [ $# -eq 0 ]; then
+  showUsage
+  exit 1
+fi
+
+declare secureboot=n
+declare initrdssh=n
+declare homesecrets=n
+declare username=nyaa
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h | --host)
+      host=$2
+      shift
+      ;;
+    --help)
+      showUsage
+      exit 0
+      ;;
+    --secureboot)
+      secureboot=y
+      ;;
+    --initrdssh)
+      initrdssh=y
+      ;;
+    --homesecrets)
+      homesecrets=y
+      ;;
+    --username)
+      username=$2
+      shift
+      ;;
+    *)
+      if [[ -z ${ssh_connection-} ]]; then
+        ssh_connection="$1"
+      else
+        showUsage
+        exit 1
+      fi
+      ;;
+  esac
+  shift
+done
+
+echo "### Formatting hard drive with disko ###"
+sudo nix --extra-experimental-features "nix-command flakes" run github:nix-community/disko -- --mode zap_create_mount --flake github:nyawox/arcanum#"${host}"
+
+# Create the directory where sshd expects to find the host keys
+install -d -m755 "/mnt/persist/etc/ssh"
+
+sudo cp /etc/ssh/id_* "/mnt/persist/etc/ssh/"
+# Set the correct permissions so sshd will accept the key
+sudo chmod 600 /mnt/persist/etc/ssh/id*
+sudo chown "$(users)":users /mnt/persist/etc/ssh/id*
+
+if [ $initrdssh == "y" ]; then
+  echo "Generating initrd ssh host keys..."
+  install -d -m755 "/mnt/persist/etc/secrets/initrd"
+  ssh-keygen -t ed25519 -N "" -f "/mnt/persist/etc/secrets/initrd/ssh_host_ed25519_key"
+  chmod 600 "/mnt/persist/etc/secrets/initrd/ssh_host_ed25519_key"
+fi
+
+if [ $secureboot == "y" ]; then
+  echo "Generating secureboot keys..."
+  nix develop --impure --expr '(with import (builtins.getFlake "github:nixos/nixpkgs/nixos-unstable") {}; mkShell { buildInputs = [ (pkgs.sbctl.override {databasePath = "/mnt/persist/var/lib/sbctl";}) ];})' --command sbctl create-keys
+fi
+
+if [ $homesecrets == "y" ]; then
+  install -d -m755 "$temp/persist/home/$username/.ssh"
+  cp "/home/nixos/.ssh/id_ed25519_age" "$temp/persist/home/$username/.ssh/id_ed25519_age"
+  cp "/home/nixos/.ssh/id_ed25519_age.pub" "$temp/persist/home/$username/.ssh/id_ed25519_age.pub"
+fi
+
+mkdir -p /mnt/persist/tmp
+TMPDIR=/mnt/persist/tmp nixos-install --flake .#"${host}"

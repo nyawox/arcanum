@@ -1,0 +1,13 @@
+.direnv
+result
+.deploy-gc
+/gcroot
+.Trash-1000
+*~
+*.swp
+*.swo
+
+
+# Added by cargo
+
+/target

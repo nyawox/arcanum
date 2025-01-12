@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+
+showUsage() {
+  cat <<USAGE
+Usage : remoteinstall -h <hostname> -p <port> -i <ip> [options]
+
+Options:
+
+
+* -h, --host <hostname>
+Set the config hostname to install from this flake.
+
+* -p, --port <ssh_port>
+Set the SSH port to connect with.
+
+* -i, --ip <ssh_ip>
+Set the destination IP to install.
+
+* --identity-key <file_path>
+Set the private key to use
+
+* --secureboot
+Generate secure boot keys.
+
+* --initrdssh
+Generate initrd SSH host keys.
+
+* --homesecrets
+Install home secrets key
+
+* --username
+Set the username to install secrets (optional)
+
+USAGE
+}
+
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &>/dev/null && pwd)
+cd "$SCRIPT_DIR" || exit
+
+if [ $# -eq 0 ]; then
+  showUsage
+  exit 1
+fi
+
+declare secureboot=n
+declare initrdssh=n
+declare homesecrets=n
+declare username=nyaa
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -h | --host)
+      host=$2
+      shift
+      ;;
+    -i | --ip)
+      ip=$2
+      shift
+      ;;
+    -p | --port)
+      port=$2
+      shift
+      ;;
+    --identity-key)
+      identitykey=$2
+      shift
+      ;;
+    --help)
+      showUsage
+      exit 0
+      ;;
+    --secureboot)
+      secureboot=y
+      ;;
+    --initrdssh)
+      initrdssh=y
+      ;;
+    --homesecrets)
+      homesecrets=y
+      ;;
+    --username)
+      username=$2
+      shift
+      ;;
+    *)
+      if [[ -z ${ssh_connection-} ]]; then
+        ssh_connection="$1"
+      else
+        showUsage
+        exit 1
+      fi
+      ;;
+  esac
+  shift
+done
+
+# Create a temporary directory
+temp=$(mktemp -d)
+
+# Function to cleanup temporary directory on exit
+cleanup() {
+  rm -rf "$temp"
+}
+trap cleanup EXIT
+
+# Create the directory where sshd expects to find the host keys
+install -d -m755 "$temp/persist/etc/ssh"
+
+sudo cp /etc/ssh/id_* "$temp/persist/etc/ssh/"
+
+# Set the correct permissions so sshd will accept the key
+sudo chmod 600 "$temp"/persist/etc/ssh/id*
+sudo chown "$(users)":users "$temp"/persist/etc/ssh/id*
+
+if [ $initrdssh == "y" ]; then
+  echo "Generating initrd ssh host keys..."
+  install -d -m755 "$temp/persist/etc/secrets/initrd"
+  ssh-keygen -t ed25519 -N "" -f "$temp/persist/etc/secrets/initrd/ssh_host_ed25519_key"
+  chmod 600 "$temp/persist/etc/secrets/initrd/ssh_host_ed25519_key"
+fi
+
+if [ $secureboot == "y" ]; then
+  echo "Generating secureboot keys..."
+  nix develop --impure --expr '(with import (builtins.getFlake "github:nixos/nixpkgs/nixos-unstable") {}; mkShell { buildInputs = [ (pkgs.sbctl.override {databasePath = "'"$temp"'/persist/var/lib/sbctl";}) ];})' --command sbctl create-keys
+fi
+
+if [ $homesecrets == "y" ]; then
+  install -d -m755 "$temp/persist/home/$username/.ssh"
+  cp "/home/$username/.ssh/id_ed25519_age" "$temp/persist/home/$username/.ssh/id_ed25519_age"
+  cp "/home/$username/.ssh/id_ed25519_age.pub" "$temp/persist/home/$username/.ssh/id_ed25519_age.pub"
+fi
+
+# Install NixOS to the destination with our secrets
+# When deploying to 1GB hosts:
+: <<'END_COMMENT'
+zramctl --find --size 2G
+mkswap /dev/zram1
+swapon /dev/zram1
+mount -o remount,size=2G /nix/.rw-store
+systemctl stop systemd-oomd.service
+systemctl stop systemd-oomd.socket
+END_COMMENT
+# it's common to low memory instances oom during reboot after installation, in such cases a manual force reboot may be required
+nix --extra-experimental-features "nix-command flakes" run github:nix-community/nixos-anywhere -- --extra-files "$temp" --flake .#"$host" -p "$port" -i "$identitykey" --kexec "$(nix build --refresh --print-out-paths github:luqasn/nixos-images#packages.x86_64-linux.kexec-installer-nixos-unstable-noninteractive)/nixos-kexec-installer-noninteractive-x86_64-linux.tar.gz" --no-substitute-on-destination --debug root@"$ip"
+# nix --extra-experimental-features "nix-command flakes" run github:nix-community/nixos-anywhere -- --extra-files "$temp" --flake .#"$host" -p "$port" -i "$identitykey" root@"$ip"

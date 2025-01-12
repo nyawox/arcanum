@@ -1,0 +1,57 @@
+diff --git a/src/paperless/adapter.py b/src/paperless/adapter.py
+index add2bf45d..85420cb46 100644
+--- a/src/paperless/adapter.py
++++ b/src/paperless/adapter.py
+@@ -7,6 +7,8 @@ from django.conf import settings
+ from django.forms import ValidationError
+ from django.urls import reverse
+ 
++from django.apps import apps
++from django.contrib.auth.models import Permission
+ 
+ class CustomAccountAdapter(DefaultAccountAdapter):
+     def is_open_for_signup(self, request):
+@@ -86,4 +88,20 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
+         global default permissions are implemented in the future.
+         """
+         # TODO: If default global permissions are implemented, should also be here
+-        return super().populate_user(request, sociallogin, data)  # pragma: no cover
++        user = super().populate_user(request, sociallogin, data)
++        groups = sociallogin.account.extra_data.get(settings.SOCIALACCOUNT_ADMIN_GROUP_SCOPE)
++        if groups:
++            if settings.SOCIALACCOUNT_ADMIN_GROUP in groups:
++                user.is_superuser = True
++        return user  # pragma: no cover
++
++    def save_user(self, request, sociallogin, form=None):
++        """
++        Add the default lowest-level permissions to users
++        """
++        user = super().save_user(request, sociallogin, form)
++        default_permission_codenames = getattr(settings, "SOCIALACCOUNT_DEFAULT_PERMISSIONS", [])
++        permissions = apps.get_model("auth", "Permission").objects.filter( codename__in=default_permission_codenames )
++        for permission in permissions:
++            user.user_permissions.add(permission.id)
++        return user
+diff --git a/src/paperless/settings.py b/src/paperless/settings.py
+index a32c78ef5..8dc624cbc 100644
+--- a/src/paperless/settings.py
++++ b/src/paperless/settings.py
+@@ -469,6 +469,17 @@ SOCIALACCOUNT_AUTO_SIGNUP = __get_boolean("PAPERLESS_SOCIAL_AUTO_SIGNUP")
+ SOCIALACCOUNT_PROVIDERS = json.loads(
+     os.getenv("PAPERLESS_SOCIALACCOUNT_PROVIDERS", "{}"),
+ )
++SOCIALACCOUNT_ADMIN_GROUP = os.getenv("PAPERLESS_SOCIALACCOUNT_ADMIN_GROUP", "admin")
++SOCIALACCOUNT_ADMIN_GROUP_SCOPE = os.getenv("SOCIALACCOUNT_ADMIN_GROUP_SCOPE", "groups")
++SOCIALACCOUNT_DEFAULT_PERMISSIONS = list(
++    json.loads(
++        os.getenv(
++            "PAPERLESS_SOCIALACCOUNT_DEFAULT_PERMISSIONS",
++            '["view_uisettings"]',
++        ),
++    ),
++)
++
+ 
+ MFA_TOTP_ISSUER = "Paperless-ngx"
+ 

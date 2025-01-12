@@ -1,0 +1,13 @@
+diff --git a/apps/desktop/webpack.main.js b/apps/desktop/webpack.main.js
+index 25a68d8c86..55716b495f 100644
+--- a/apps/desktop/webpack.main.js
++++ b/apps/desktop/webpack.main.js
+@@ -68,7 +68,7 @@ const main = {
+   plugins: [
+     new CopyWebpackPlugin({
+       patterns: [
+-        "./src/package.json",
++        "./src/package-lock.json",
+         { from: "./src/images", to: "images" },
+         { from: "./src/locales", to: "locales" },
+       ],

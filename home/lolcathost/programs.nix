@@ -1,0 +1,63 @@
+{
+  pkgs,
+  inputs,
+  ...
+}:
+{
+  home.packages = with pkgs; [
+    nomacs
+    piper
+    pciutils
+    dmidecode
+    heroic
+    wineWowPackages.waylandFull
+    telegram-desktop
+    samba
+    unzip
+    unrar
+    unar
+    nvme-cli
+    smartmontools
+    imagemagick
+    fd
+    ffmpegthumbnailer
+    mediainfo
+    cabextract
+    appimage-run
+    screen
+    killall
+    libimobiledevice
+    ifuse
+    efibootmgr
+    gimp
+    pavucontrol
+    btrfs-progs
+    progress
+    parted
+    glxinfo
+    nix-prefetch-github
+    nix-prefetch-git
+    bc
+    ripgrep
+    aria2
+    ventoy
+    e2fsprogs
+    xarchiver
+    p7zip
+    breeze-icons
+    nautilus
+    openjdk
+    gradience
+    iwgtk
+    distrobox
+    gpu-screen-recorder
+    gpu-screen-recorder-gtk
+    remmina
+    onlyoffice-bin
+    obs-studio
+    trayscale
+    inputs.nixtendo-switch.packages.${pkgs.system}.uscreen
+    calibre
+    meowfetch
+  ];
+}
